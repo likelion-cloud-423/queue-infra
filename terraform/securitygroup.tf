@@ -77,12 +77,12 @@ resource "aws_security_group" "alb_sg" {
 
 
 ###############################################
-# REDIS SECURITY GROUP
+# valkey SECURITY GROUP
 ###############################################
 
-resource "aws_security_group" "redis_sg" {
-  name        = "${var.name_prefix}-redis-sg"
-  description = "Security group for Redis"
+resource "aws_security_group" "valkey_sg" {
+  name        = "${var.name_prefix}-valkey-sg"
+  description = "Security group for valkey"
   vpc_id      = module.vpc.vpc_id
 
   egress {
@@ -93,16 +93,16 @@ resource "aws_security_group" "redis_sg" {
   }
 
   tags = {
-    Name = "${var.name_prefix}-redis-sg"
+    Name = "${var.name_prefix}-valkey-sg"
   }
 }
 
-resource "aws_security_group_rule" "redis_ingress_from_eks" {
-  description              = "Allow EKS Node to Redis 6379"
+resource "aws_security_group_rule" "valkey_ingress_from_eks" {
+  description              = "Allow EKS Node to valkey 6379"
   type                     = "ingress"
   from_port                = 6379
   to_port                  = 6379
   protocol                 = "tcp"
-  security_group_id        = aws_security_group.redis_sg.id
+  security_group_id        = aws_security_group.valkey_sg.id
   source_security_group_id = aws_security_group.eks_node_sg.id
 }

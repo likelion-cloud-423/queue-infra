@@ -13,19 +13,12 @@ provider "aws" {
 }
 
 module "vpc" {
-  source = "./modules/vpc"
-
+  source          = "./modules/vpc"
   name_prefix     = var.name_prefix
   vpc_cidr        = "10.23.0.0/16"
   azs             = ["ap-northeast-2a", "ap-northeast-2c"]
   public_subnets  = ["10.23.1.0/24", "10.23.2.0/24"]
   private_subnets = ["10.23.11.0/24", "10.23.12.0/24"]
-  
-
-  tags = {
-    Project = "Codex"
-    Env     = "dev"
-  }
 }
 
 module "eks" {
