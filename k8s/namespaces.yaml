@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: queue-system
+  labels:
+    name: queue-system
+    app.kubernetes.io/part-of: queue-system

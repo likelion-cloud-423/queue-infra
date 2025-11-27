@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queue-api
+  namespace: queue-system
+  labels:
+    app: queue-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: queue-api
+  template:
+    metadata:
+      labels:
+        app: queue-api
+    spec:
+      containers:
+        - name: queue-api
+          image: nginx
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+
+          env:
+            - name: REDIS_HOST
+              value: "redis.queue-system.svc.cluster.local"
+            - name: REDIS_PORT
+              value: "6379"
+            # - name: REDIS_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: redis-secret
+            #       key: password
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health # 실제 코드에 맞게 조정
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health # 실제 코드에 맞게 조정
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20

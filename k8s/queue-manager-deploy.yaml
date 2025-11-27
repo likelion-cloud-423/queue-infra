@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queue-manager
+  namespace: queue-system
+  labels:
+    app: queue-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: queue-manager
+  template:
+    metadata:
+      labels:
+        app: queue-manager
+    spec:
+      containers:
+        - name: queue-manager
+          image: nginx
+          imagePullPolicy: Always
+
+          env:
+            - name: REDIS_HOST
+              value: "redis.queue-system.svc.cluster.local"
+            - name: REDIS_PORT
+              value: "6379"
+            # - name: REDIS_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: redis-secret
+            #       key: password
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"

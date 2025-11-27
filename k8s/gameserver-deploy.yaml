@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gameserver
+  namespace: queue-system
+  labels:
+    app: gameserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gameserver
+  template:
+    metadata:
+      labels:
+        app: gameserver
+    spec:
+      containers:
+        - name: gameserver
+          image: nginx
+          imagePullPolicy: Always
+
+          # WebSocket 서버 포트
+          ports:
+            - name: websocket
+              containerPort: 9000
+
+          # Redis 연결 정보
+          env:
+            - name: REDIS_HOST
+              value: "redis.queue-system.svc.cluster.local" # 반드시 서비스 이름 확인
+            - name: REDIS_PORT
+              value: "6379"
+            # 필요하면 토큰/패스워드는 Secret로 분리
+            # - name: REDIS_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: redis-secret
+            #       key: password
+
+          # 최소한의 리소스 설정(테스트용)
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+
+          # WebSocket 이라 HTTP /health 없을 수 있어서 TCP 체크로 간단히
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 15
+            periodSeconds: 20
