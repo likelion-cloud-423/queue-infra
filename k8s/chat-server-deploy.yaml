@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gameserver
+  name: chat-server
   namespace: queue-system
   labels:
-    app: gameserver
+    app: chat-server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: gameserver
+      app: chat-server
   template:
     metadata:
       labels:
-        app: gameserver
+        app: chat-server
     spec:
       containers:
-        - name: gameserver
+        - name: chat-server
           image: nginx
           imagePullPolicy: Always
 
@@ -27,10 +27,10 @@ spec:
 
           # Valkey 연결 정보
           env:
-            - name: VALKEY_HOST
-              value: "valkey.queue-system.svc.cluster.local" # 반드시 서비스 이름 확인
-            - name: VALKEY_PORT
-              value: "6379"
+            - name: ConnectionStrings__Valkey
+              value: "valkey:6379"
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
             # 필요하면 토큰/패스워드는 Secret로 분리
             # - name: VALKEY_PASSWORD
             #   valueFrom:

@@ -21,9 +21,9 @@ spec:
           imagePullPolicy: Always
 
           env:
-            - name: VALKEY_HOST
-              value: "valkey.queue-system.svc.cluster.local"
-            - name: VALKEY_PORT
+            - name: SPRING_DATA_REDIS_HOST
+              value: "valkey"
+            - name: SPRING_DATA_REDIS_PORT
               value: "6379"
             # - name: VALKEY_PASSWORD
             #   valueFrom:

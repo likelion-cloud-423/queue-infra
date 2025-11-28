@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: gameserver
+  name: chat-server
   namespace: queue-system
 spec:
   type: ClusterIP
   selector:
-    app: gameserver
+    app: chat-server
   ports:
     - name: websocket
-      port: 9000 # 클러스터 내부에서 gameserver 서비스가 노출되는 포트
+      port: 9000 # 클러스터 내부에서 chat-server 서비스가 노출되는 포트
       targetPort: 9000 # Pod 안의 containerPort
