@@ -17,21 +17,23 @@ spec:
     spec:
       containers:
         - name: queue-api
-          image: nginx
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/queue-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
 
           env:
             - name: SPRING_DATA_REDIS_HOST
-              value: "valkey"
+              valueFrom:
+                secretKeyRef:
+                  name: valkey-secret
+                  key: SPRING_DATA_REDIS_HOST
+
             - name: SPRING_DATA_REDIS_PORT
-              value: "6379"
-            # - name: VALKEY_PASSWORD
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: valkey-secret
-            #       key: password
+              valueFrom:
+                secretKeyRef:
+                  name: valkey-secret
+                  key: SPRING_DATA_REDIS_PORT
 
           resources:
             requests:

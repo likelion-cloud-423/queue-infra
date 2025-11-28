@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: chat-server
-          image: nginx
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/chat-server:latest
           imagePullPolicy: Always
 
           # WebSocket 서버 포트
@@ -28,15 +28,13 @@ spec:
           # Valkey 연결 정보
           env:
             - name: ConnectionStrings__Valkey
-              value: "valkey:6379"
+              valueFrom:
+                secretKeyRef:
+                  name: valkey-secret
+                  key: ConnectionStrings__Valkey
+
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
-            # 필요하면 토큰/패스워드는 Secret로 분리
-            # - name: VALKEY_PASSWORD
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: valkey-secret
-            #       key: password
 
           # 최소한의 리소스 설정(테스트용)
           resources:
