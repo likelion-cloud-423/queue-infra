@@ -31,3 +31,7 @@ resource "aws_elasticache_replication_group" "valkey" {
     Name = "${var.name_prefix}-valkey"
   }
 }
+output "valkey_primary_endpoint" {
+  description = "Valkey primary endpoint"
+  value       = aws_elasticache_replication_group.valkey.primary_endpoint_address
+}
