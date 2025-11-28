@@ -25,17 +25,17 @@ spec:
             - name: websocket
               containerPort: 9000
 
-          # Redis 연결 정보
+          # Valkey 연결 정보
           env:
-            - name: REDIS_HOST
-              value: "redis.queue-system.svc.cluster.local" # 반드시 서비스 이름 확인
-            - name: REDIS_PORT
+            - name: VALKEY_HOST
+              value: "valkey.queue-system.svc.cluster.local" # 반드시 서비스 이름 확인
+            - name: VALKEY_PORT
               value: "6379"
             # 필요하면 토큰/패스워드는 Secret로 분리
-            # - name: REDIS_PASSWORD
+            # - name: VALKEY_PASSWORD
             #   valueFrom:
             #     secretKeyRef:
-            #       name: redis-secret
+            #       name: valkey-secret
             #       key: password
 
           # 최소한의 리소스 설정(테스트용)

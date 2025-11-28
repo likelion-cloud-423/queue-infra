@@ -23,14 +23,14 @@ spec:
             - containerPort: 8080
 
           env:
-            - name: REDIS_HOST
-              value: "redis.queue-system.svc.cluster.local"
-            - name: REDIS_PORT
+            - name: VALKEY_HOST
+              value: "valkey.queue-system.svc.cluster.local"
+            - name: VALKEY_PORT
               value: "6379"
-            # - name: REDIS_PASSWORD
+            # - name: VALKEY_PASSWORD
             #   valueFrom:
             #     secretKeyRef:
-            #       name: redis-secret
+            #       name: valkey-secret
             #       key: password
 
           resources:

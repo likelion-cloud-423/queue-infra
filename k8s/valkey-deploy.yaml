@@ -1,30 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis
+  name: valkey
   namespace: queue-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: redis
+      app: valkey
   template:
     metadata:
       labels:
-        app: redis
+        app: valkey
     spec:
       containers:
-        - name: redis
+        - name: valkey
           #image: bitnami/redis:7.2
           image: nginx
           imagePullPolicy: Always
           ports:
             - containerPort: 6379
           env:
-            - name: REDIS_PASSWORD
+            - name: VALKEY_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: redis-secret
+                  name: valkey-secret
                   key: password
           resources:
             requests:
