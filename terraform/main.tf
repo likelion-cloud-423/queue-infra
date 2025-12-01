@@ -30,9 +30,9 @@ module "vpc" {
   private_subnets = ["10.23.11.0/24", "10.23.12.0/24"]
 }
 
-/*이 코드로 하다가 삭제가 안되는 에러가 나버림
 
-# 퍼블릭 서브넷에 태그 달기
+
+# 퍼블릭 서브넷에 태그 달기 일단은 다시 활성화해보자.. 오류가 날 수도 있긴 함
 resource "aws_ec2_tag" "public_subnets_elb_role" {
   for_each    = toset(module.vpc.public_subnet_ids)
   resource_id = each.value
@@ -49,9 +49,9 @@ resource "aws_ec2_tag" "public_subnets_cluster" {
   key   = "kubernetes.io/cluster/team3-eks-cluster"
   value = "shared"
 }
-*/
 
 
+/*
 # VPC 모듈에서 나온 public_subnet_ids를 "고정 키 → 서브넷 ID" 맵으로 변환
 locals {
   public_subnets_map = {
@@ -77,7 +77,7 @@ resource "aws_ec2_tag" "public_subnets_cluster" {
   key   = "kubernetes.io/cluster/team3-eks-cluster"
   value = "shared"
 }
-
+*/
 
 
 
