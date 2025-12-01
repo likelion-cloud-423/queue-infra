@@ -21,6 +21,9 @@ spec:
           imagePullPolicy: Always
 
           env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://adot-collector.observability.svc.cluster.local:4318/v1/metrics"
+
             - name: SPRING_DATA_REDIS_HOST
               valueFrom:
                 secretKeyRef:
