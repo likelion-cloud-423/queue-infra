@@ -19,13 +19,10 @@ spec:
         - name: chat-server
           image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/chat-server:latest
           imagePullPolicy: Always
-
-          # WebSocket 서버 포트
           ports:
-            - name: websocket
-              containerPort: 9000
+            - name: http
+              containerPort: 8080 # ★ 여기 8080
 
-          # Valkey 연결 정보
           env:
             - name: ConnectionStrings__Valkey
               valueFrom:
@@ -36,7 +33,6 @@ spec:
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
 
-          # 최소한의 리소스 설정(테스트용)
           resources:
             requests:
               cpu: "50m"
@@ -45,15 +41,18 @@ spec:
               cpu: "200m"
               memory: "256Mi"
 
-          # WebSocket 이라 HTTP /health 없을 수 있어서 TCP 체크로 간단히
           readinessProbe:
             tcpSocket:
-              port: 9000
+              port: 8080 # 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
 
           livenessProbe:
             tcpSocket:
-              port: 9000
+              port: 8080 # 8080
             initialDelaySeconds: 15
             periodSeconds: 20
+            timeoutSeconds: 1
+            failureThreshold: 3

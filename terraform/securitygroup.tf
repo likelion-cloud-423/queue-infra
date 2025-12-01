@@ -1,7 +1,4 @@
-###############################################
 # EKS NODE SECURITY GROUP
-###############################################
-
 resource "aws_security_group" "eks_node_sg" {
   name        = "${var.name_prefix}-eks-node-sg"
   description = "Security group for EKS worker nodes"
@@ -40,9 +37,8 @@ resource "aws_security_group_rule" "eks_node_ingress_http_https_from_alb" {
 }
 
 
-###############################################
 # ALB SECURITY GROUP
-###############################################
+
 
 resource "aws_security_group" "alb_sg" {
   name        = "${var.name_prefix}-alb-sg"
@@ -76,10 +72,7 @@ resource "aws_security_group" "alb_sg" {
 }
 
 
-###############################################
-# valkey SECURITY GROUP
-###############################################
-
+# VALKEY SECURITY GROUP
 resource "aws_security_group" "valkey_sg" {
   name        = "${var.name_prefix}-valkey-sg"
   description = "Security group for valkey"
@@ -98,11 +91,15 @@ resource "aws_security_group" "valkey_sg" {
 }
 
 resource "aws_security_group_rule" "valkey_ingress_from_eks" {
-  description              = "Allow EKS Node to valkey 6379"
-  type                     = "ingress"
-  from_port                = 6379
-  to_port                  = 6379
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.valkey_sg.id
-  source_security_group_id = aws_security_group.eks_node_sg.id
+  description = "Allow EKS (cluster SG) to valkey 6379"
+  type        = "ingress"
+  from_port   = 6379
+  to_port     = 6379
+  protocol    = "tcp"
+
+  
+  security_group_id = aws_security_group.valkey_sg.id
+
+  
+  source_security_group_id = data.aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }

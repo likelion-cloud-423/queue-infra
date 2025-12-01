@@ -7,3 +7,7 @@ variable "private_subnet_ids" {
   description = "Private subnet IDs for worker nodes and cluster ENI"
   type        = list(string)
 }
+variable "valkey_endpoint" {
+  type        = string
+  description = "Primary endpoint of Valkey (ElastiCache)"
+}

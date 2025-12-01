@@ -13,7 +13,7 @@ resource "aws_elasticache_replication_group" "valkey" {
 
   engine         = "valkey"
   engine_version = "8.2"
-  node_type      = "cache.t4g.small"
+  node_type      = "cache.t4g.micro"
   port           = 6379
 
   multi_az_enabled           = false
@@ -30,8 +30,4 @@ resource "aws_elasticache_replication_group" "valkey" {
   tags = {
     Name = "${var.name_prefix}-valkey"
   }
-}
-output "valkey_primary_endpoint" {
-  description = "Valkey primary endpoint"
-  value       = aws_elasticache_replication_group.valkey.primary_endpoint_address
 }

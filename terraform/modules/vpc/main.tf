@@ -48,7 +48,7 @@ resource "aws_subnet" "private" {
   })
 }
 
-# NAT Gateway
+
 resource "aws_eip" "nat" {
   domain = "vpc"
 
@@ -56,6 +56,7 @@ resource "aws_eip" "nat" {
     Name = "${var.name_prefix}-nat-eip"
   })
 }
+
 
 resource "aws_nat_gateway" "this" {
   allocation_id = aws_eip.nat.id
@@ -67,6 +68,8 @@ resource "aws_nat_gateway" "this" {
     Name = "${var.name_prefix}-nat"
   })
 }
+
+
 
 # Route Tables
 

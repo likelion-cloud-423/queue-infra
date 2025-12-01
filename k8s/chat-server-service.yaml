@@ -9,5 +9,5 @@ spec:
     app: chat-server
   ports:
     - name: websocket
-      port: 9000 # 클러스터 내부에서 chat-server 서비스가 노출되는 포트
-      targetPort: 9000 # Pod 안의 containerPort
+      port: 9000 # 클러스터/Ingress에서 보는 포트
+      targetPort: 8080 # 컨테이너 실제 포트
