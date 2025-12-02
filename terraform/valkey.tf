@@ -5,6 +5,8 @@ resource "aws_elasticache_subnet_group" "valkey_subnet_group" {
   tags = {
     Name = "${var.name_prefix}-valkey-subnet-group"
   }
+
+  depends_on = [module.vpc]
 }
 
 resource "aws_elasticache_replication_group" "valkey" {

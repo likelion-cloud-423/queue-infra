@@ -14,6 +14,8 @@ resource "aws_security_group" "eks_node_sg" {
   tags = {
     Name = "${var.name_prefix}-eks-node-sg"
   }
+
+  depends_on = [module.vpc]
 }
 
 resource "aws_security_group_rule" "eks_node_ingress_from_alb" {
@@ -69,6 +71,8 @@ resource "aws_security_group" "alb_sg" {
   tags = {
     Name = "${var.name_prefix}-alb-sg"
   }
+
+  depends_on = [module.vpc]
 }
 
 
@@ -88,6 +92,8 @@ resource "aws_security_group" "valkey_sg" {
   tags = {
     Name = "${var.name_prefix}-valkey-sg"
   }
+
+  depends_on = [module.vpc]
 }
 
 resource "aws_security_group_rule" "valkey_ingress_from_eks" {
@@ -102,4 +108,6 @@ resource "aws_security_group_rule" "valkey_ingress_from_eks" {
 
   
   source_security_group_id = data.aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+
+  depends_on = [module.eks, data.aws_eks_cluster.this]
 }

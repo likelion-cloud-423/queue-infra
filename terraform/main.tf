@@ -14,29 +14,11 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.38"
     }
-    grafana = {
-      source  = "grafana/grafana"
-      version = "~> 4.20"
-    }
   }
 }
 
 provider "aws" {
   region = "ap-northeast-2"
-}
-
-# Grafana Provider - Amazon Managed Grafana
-provider "grafana" {
-  url  = "https://${aws_grafana_workspace.this.endpoint}"
-  auth = aws_grafana_workspace_api_key.terraform.key
-}
-
-# API Key for Terraform to manage Grafana resources
-resource "aws_grafana_workspace_api_key" "terraform" {
-  key_name        = "terraform"
-  key_role        = "ADMIN"
-  seconds_to_live = 2592000 # 30 days
-  workspace_id    = aws_grafana_workspace.this.id
 }
 
 module "vpc" {
@@ -111,6 +93,7 @@ module "eks" {
 
   cluster_name       = "team3-eks-cluster"
   private_subnet_ids = module.vpc.private_subnet_ids
+  vpc_id             = module.vpc.vpc_id
   valkey_endpoint    = aws_elasticache_replication_group.valkey.primary_endpoint_address
   cluster_version    = var.cluster_version
 }
@@ -121,23 +104,31 @@ data "aws_eks_cluster" "this" {
   depends_on = [module.eks]
 }
 
-data "aws_eks_cluster_auth" "this" {
-  name       = module.eks.cluster_name
-  depends_on = [module.eks]
-}
+# data "aws_eks_cluster_auth" "this" {
+#   name       = module.eks.cluster_name
+#   depends_on = [module.eks]
+# }
 
 # ✅ kubernetes provider (k8s-secret-valkey.tf 에서 사용)
 provider "kubernetes" {
-  host                   = data.aws_eks_cluster.this.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.this.token
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
+    command     = "aws"
+  }
 }
 
 # Helm provider – 그대로 유지
 provider "helm" {
   kubernetes = {
-    host                   = data.aws_eks_cluster.this.endpoint
-    cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
-    token                  = data.aws_eks_cluster_auth.this.token
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority)
+    exec = {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
+      command     = "aws"
+    }
   }
 }
