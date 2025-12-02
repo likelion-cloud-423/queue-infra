@@ -64,41 +64,38 @@ resource "helm_release" "alb_controller" {
   chart      = "aws-load-balancer-controller"
   version    = "1.8.1"
 
-  # --set clusterName=team3-eks-cluster
-  set {
-    name  = "clusterName"
-    value = aws_eks_cluster.this.name
-  }
-
-  # --set serviceAccount.create=true
-  set {
-    name  = "serviceAccount.create"
-    value = "true"
-  }
-
-  # --set serviceAccount.name=aws-load-balancer-controller
-  set {
-    name  = "serviceAccount.name"
-    value = "aws-load-balancer-controller"
-  }
-
-  # --set region=ap-northeast-2
-  set {
-    name  = "region"
-    value = "ap-northeast-2"
-  }
-
-  # --set vpcId=...
-  set {
-    name  = "vpcId"
-    value = aws_eks_cluster.this.vpc_config[0].vpc_id
-  }
-
-  # --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="ROLE_ARN"
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.alb_controller_role.arn
-  }
+  set = [
+    # --set clusterName=team3-eks-cluster
+    {
+      name  = "clusterName"
+      value = aws_eks_cluster.this.name
+    },
+    # --set serviceAccount.create=true
+    {
+      name  = "serviceAccount.create"
+      value = "true"
+    },
+    # --set serviceAccount.name=aws-load-balancer-controller
+    {
+      name  = "serviceAccount.name"
+      value = "aws-load-balancer-controller"
+    },
+    # --set region=ap-northeast-2
+    {
+      name  = "region"
+      value = "ap-northeast-2"
+    },
+    # --set vpcId=...
+    {
+      name  = "vpcId"
+      value = aws_eks_cluster.this.vpc_config[0].vpc_id
+    },
+    # --set serviceAccount.annotations."eks\\.amazonaws\\.com/role-arn"="ROLE_ARN"
+    {
+      name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+      value = aws_iam_role.alb_controller_role.arn
+    }
+  ]
 }
 
 

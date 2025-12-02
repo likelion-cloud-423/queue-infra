@@ -4,19 +4,19 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.23"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.12"
+      version = "~> 3.1"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.30"
+      version = "~> 2.38"
     }
     grafana = {
       source  = "grafana/grafana"
-      version = "~> 3.0"
+      version = "~> 4.20"
     }
   }
 }
@@ -48,11 +48,16 @@ module "vpc" {
   private_subnets = ["10.23.11.0/24", "10.23.12.0/24"]
 }
 
-
+locals {
+  public_subnets_map = {
+    for idx, subnet_id in module.vpc.public_subnet_ids :
+    idx => subnet_id
+  }
+}
 
 # 퍼블릭 서브넷에 태그 달기 일단은 다시 활성화해보자.. 오류가 날 수도 있긴 함
 resource "aws_ec2_tag" "public_subnets_elb_role" {
-  for_each    = toset(module.vpc.public_subnet_ids)
+  for_each    = local.public_subnets_map
   resource_id = each.value
 
   key   = "kubernetes.io/role/elb"
@@ -61,7 +66,7 @@ resource "aws_ec2_tag" "public_subnets_elb_role" {
 
 #  클러스터 태그 달기
 resource "aws_ec2_tag" "public_subnets_cluster" {
-  for_each    = toset(module.vpc.public_subnet_ids)
+  for_each    = local.public_subnets_map
   resource_id = each.value
 
   key   = "kubernetes.io/cluster/team3-eks-cluster"
@@ -129,7 +134,7 @@ provider "kubernetes" {
 
 # Helm provider – 그대로 유지
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = data.aws_eks_cluster.this.endpoint
     cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
     token                  = data.aws_eks_cluster_auth.this.token

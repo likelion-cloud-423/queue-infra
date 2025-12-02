@@ -230,17 +230,6 @@ resource "aws_iam_role_policy" "loki_s3_policy" {
 # Grafana Dashboard Provisioning
 # =============================================================================
 
-# Valkey Monitoring Dashboard
-resource "aws_grafana_workspace_configuration" "this" {
-  workspace_id = aws_grafana_workspace.this.id
-
-  configuration = jsonencode({
-    plugins = {
-      pluginAdminEnabled = true
-    }
-  })
-}
-
 # AMP Data Source for Grafana
 resource "grafana_data_source" "prometheus" {
   depends_on = [aws_grafana_workspace.this]
