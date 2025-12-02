@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: queue-project
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Queue System Project
+  
+  sourceRepos:
+    - https://github.com/<ORG>/queue-infra.git  # Replace with your repo
+    - https://grafana.github.io/helm-charts
+  
+  destinations:
+    - namespace: queue-system
+      server: https://kubernetes.default.svc
+    - namespace: observability
+      server: https://kubernetes.default.svc
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+  
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: networking.k8s.io
+      kind: IngressClass
+  
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: apps
+      kind: '*'
+    - group: autoscaling
+      kind: '*'
+    - group: networking.k8s.io
+      kind: '*'

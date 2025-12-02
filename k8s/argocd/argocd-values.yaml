@@ -1,0 +1,68 @@
+# ArgoCD Helm Values
+# Install: helm upgrade --install argocd argo/argo-cd -n argocd -f argocd-values.yaml
+
+global:
+  domain: argocd.example.com  # Replace with your domain
+
+server:
+  extraArgs:
+    - --insecure  # Disable TLS (ALB handles TLS termination)
+  
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+      alb.ingress.kubernetes.io/group.name: argocd
+    hosts:
+      - argocd.example.com  # Replace with your domain
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+configs:
+  params:
+    server.insecure: true

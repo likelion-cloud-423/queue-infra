@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-manifests
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/<ORG>/queue-infra.git  # Replace with your repo
+    targetRevision: main
+    path: k8s/observability
+    directory:
+      include: '{namespace.yaml,configmap.yaml,alloy-configmap.yaml,redis-exporter.yaml}'
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

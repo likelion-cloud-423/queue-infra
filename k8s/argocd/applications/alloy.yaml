@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: alloy
+    targetRevision: 0.9.2
+    helm:
+      values: |
+        alloy:
+          configMap:
+            create: false
+            name: alloy-config
+            key: config.alloy
+          extraEnv:
+            - name: AMP_WORKSPACE_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: observability-config
+                  key: AMP_WORKSPACE_ID
+            - name: AMP_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: observability-config
+                  key: AMP_REGION
+            - name: LOKI_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: observability-config
+                  key: LOKI_ENDPOINT
+        serviceAccount:
+          create: true
+          name: alloy
+          annotations:
+            eks.amazonaws.com/role-arn: "<ALLOY_ROLE_ARN>"
+        controller:
+          type: deployment
+          replicas: 1
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
