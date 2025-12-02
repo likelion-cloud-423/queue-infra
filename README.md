@@ -15,33 +15,33 @@ flowchart TB
             end
             subgraph OBS["observability namespace"]
                 ALLOY[Grafana Alloy]
+                PROM[Prometheus]
                 LOKI[Loki]
+                GRAF[Grafana]
                 RE[Redis Exporter]
             end
         end
         
         VALKEY[(ElastiCache<br/>Valkey)]
-        AMP[Amazon Managed<br/>Prometheus]
         S3[(S3<br/>Loki Storage)]
-        AMG[Amazon Managed<br/>Grafana]
     end
 
     QA --> VALKEY
     QM --> VALKEY
     CS --> VALKEY
     
-    QA -->|OTLP| ALLOY
-    QM -->|OTLP| ALLOY
-    CS -->|OTLP| ALLOY
+    QA -->|OTLP HTTP| ALLOY
+    QM -->|OTLP HTTP| ALLOY
+    CS -->|OTLP gRPC| ALLOY
     
-    ALLOY -->|Remote Write| AMP
+    ALLOY -->|Remote Write| PROM
     ALLOY --> LOKI
     LOKI --> S3
     RE -->|Scrape| VALKEY
     ALLOY -->|Scrape| RE
     
-    AMP --> AMG
-    LOKI --> AMG
+    PROM --> GRAF
+    LOKI --> GRAF
 ```
 
 ## 컴포넌트
@@ -49,44 +49,56 @@ flowchart TB
 | 컴포넌트 | 유형 | 배포 방식 |
 |----------|------|-----------|
 | VPC, EKS, ElastiCache | AWS 인프라 | Terraform |
-| Amazon Managed Prometheus | AWS 관리형 | Terraform |
-| Amazon Managed Grafana | AWS 관리형 | Terraform |
 | S3 (Loki Storage) | AWS 인프라 | Terraform |
 | Grafana Alloy | EKS 워크로드 | Helm (grafana/alloy) |
+| Prometheus | EKS 워크로드 | Helm (prometheus-community/prometheus) |
 | Loki | EKS 워크로드 | Helm (grafana/loki) |
-| Redis Exporter | EKS 워크로드 | k8s manifest |
+| Grafana | EKS 워크로드 | Helm (grafana/grafana) |
+| Redis Exporter | EKS 워크로드 | Helm (prometheus-community/prometheus-redis-exporter) |
 | queue-api, queue-manager, chat-server | EKS 워크로드 | Kustomize |
 
 ## 디렉토리 구조
 
 ```plaintext
 queue-infra/
-├── terraform/           # AWS 인프라 (VPC, EKS, ElastiCache, AMP, AMG)
+├── ecr/                      # ECR 리포지토리 (독립 배포)
+│   ├── main.tf
+│   └── outputs.tf
+├── terraform/                # AWS 인프라
+│   ├── dev.tfvars            # 개발 환경 설정
+│   ├── prod.tfvars           # 운영 환경 설정
+│   ├── sample.tfvars         # 환경 설정 템플릿
+│   ├── configs/              # Helm values 파일
+│   ├── dashboards/           # Grafana 대시보드
 │   ├── modules/
 │   │   ├── eks/
 │   │   └── vpc/
-│   ├── dashboards/      # Grafana 대시보드 JSON
-│   ├── main.tf
-│   ├── observability.tf
-│   └── ...
+│   └── *.tf
 └── k8s/
-    ├── apps/            # 애플리케이션 서비스 (Kustomize base)
-    ├── overlays/
-    │   └── production/  # 프로덕션 환경 오버레이
-    ├── observability/   # 모니터링 스택
-    │   ├── alloy-values.yaml
-    │   ├── loki-values.yaml
-    │   ├── alloy-configmap.yaml
-    │   ├── redis-exporter.yaml
-    │   └── configmap.yaml
-    └── argocd/          # ArgoCD 설정
-        ├── argocd-values.yaml    # ArgoCD Helm values
-        ├── project.yaml          # AppProject
-        └── applications/         # Application 정의
-            ├── queue-system.yaml
-            ├── observability-manifests.yaml
-            ├── loki.yaml
-            └── alloy.yaml
+    ├── base/                 # Kustomize base (공통)
+    └── overlays/
+        ├── dev/              # 개발 환경 오버레이
+        └── prod/             # 운영 환경 오버레이
+```
+
+## 환경별 설정
+
+| 설정 | dev (최소 비용) | prod (운영) |
+|------|----------------|-------------|
+| EKS 노드 | t4g.small × 2 | t4g.large × 3 |
+| Valkey | cache.t4g.micro, 단일 노드 | cache.t4g.medium, Multi-AZ |
+| queue-api replicas | 1 | 3 |
+| HPA max | 5 | 100 |
+
+### 커스텀 환경 생성
+
+`terraform/sample.tfvars`를 복사하여 새 환경을 생성할 수 있습니다:
+
+```bash
+cd terraform
+cp sample.tfvars staging.tfvars
+# staging.tfvars 편집 후
+terraform apply -var-file staging.tfvars
 ```
 
 ## 사전 요구사항
@@ -95,18 +107,53 @@ queue-infra/
 - Terraform >= 1.4
 - kubectl
 - Helm >= 3.0
-- AWS IAM Identity Center 설정 (Amazon Managed Grafana 접근용)
 
 ## 배포 가이드
 
-### 1. Terraform으로 전체 인프라 및 Helm 배포
+### 1. ECR 리포지토리 생성 (최초 1회)
 
 ```bash
-cd terraform
+cd ecr
 
 terraform init
 terraform plan
 terraform apply
+```
+
+**생성되는 ECR 리포지토리:**
+
+- queue-api
+- queue-manager
+- chat-server
+
+### 2. 컨테이너 이미지 빌드 및 푸시
+
+```bash
+# ECR 로그인
+aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin <ECR_REGISTRY>
+
+# 각 서비스 이미지 빌드 및 푸시
+docker build -t <ECR_REGISTRY>/queue-api:latest ./queue-api
+docker push <ECR_REGISTRY>/queue-api:latest
+
+docker build -t <ECR_REGISTRY>/queue-manager:latest ./queue-manager
+docker push <ECR_REGISTRY>/queue-manager:latest
+
+docker build -t <ECR_REGISTRY>/chat-server:latest ./chat-server
+docker push <ECR_REGISTRY>/chat-server:latest
+```
+
+### 3. Terraform으로 인프라 배포
+
+```bash
+cd terraform
+terraform init
+
+# 개발 환경 배포
+terraform apply -var-file dev.tfvars
+
+# 또는 운영 환경 배포
+terraform apply -var-file prod.tfvars
 ```
 
 **Terraform이 자동으로 배포하는 리소스:**
@@ -116,66 +163,54 @@ terraform apply
 - VPC, Subnets, NAT Gateway
 - EKS Cluster + Node Group
 - ElastiCache (Valkey)
-- Amazon Managed Prometheus (AMP)
-- Amazon Managed Grafana (AMG)
 - S3 Bucket (Loki 로그 저장소)
 - IAM Roles (IRSA)
-- ECR Repositories
 
 **Helm Charts (EKS에 자동 설치):**
 
-- ArgoCD
 - Grafana Alloy
 - Loki
+- Prometheus
+- Grafana
+- Metrics Server
 - Redis Exporter
 
 **Terraform 출력값 확인:**
 
 ```bash
-terraform output grafana_workspace_endpoint
 terraform output valkey_endpoint
-terraform output argocd_initial_admin_password  # 비밀번호 조회 명령어
+terraform output grafana_url  # ALB를 통해 접근 가능한 Grafana URL
 ```
 
-### 2. kubectl 설정
+**Grafana 접속:**
+- URL: Terraform output의 `grafana_url` 또는 `kubectl get ingress -n observability`로 확인
+- 기본 계정: admin / admin
+
+### 4. kubectl 설정
 
 ```bash
-aws eks update-kubeconfig --name team3-eks-cluster --region ap-northeast-2
+# dev 환경
+aws eks update-kubeconfig --name team3-dev-eks-cluster --region ap-northeast-2
+
+# prod 환경
+aws eks update-kubeconfig --name team3-prod-eks-cluster --region ap-northeast-2
 ```
 
-### 3. ArgoCD 접속
+### 5. Queue System 배포 (Kustomize)
 
 ```bash
-# ArgoCD URL 확인
-kubectl get ingress -n argocd
+# 개발 환경
+kubectl apply -k k8s/overlays/dev
 
-# 초기 admin 비밀번호 확인
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+# 운영 환경
+kubectl apply -k k8s/overlays/prod
 ```
 
-### 4. ArgoCD에서 애플리케이션 등록
-
-ArgoCD UI 또는 CLI에서 queue-system 애플리케이션을 등록합니다.
-
-```bash
-cd k8s/argocd
-
-# 1) applications/queue-system.yaml에서 repoURL 수정
-
-# 2) Application 배포
-kubectl apply -f project.yaml
-kubectl apply -f applications/queue-system.yaml
-```
-
-> **Note:** Loki, Alloy, Redis Exporter는 Terraform이 이미 설치했으므로,
-> ArgoCD에서는 queue-system (애플리케이션)만 관리하면 됩니다.
-
-### 5. 배포 확인
+### 6. 배포 확인
 
 ```bash
 kubectl get pods -n queue-system
 kubectl get pods -n observability
-kubectl get pods -n argocd
 kubectl get ingress -n queue-system
 ```
 
@@ -186,19 +221,19 @@ kubectl get ingress -n queue-system
 | 컴포넌트 | 배포 방식 | 설명 |
 |----------|-----------|------|
 | VPC, EKS, ElastiCache | Terraform | AWS 인프라 |
-| AMP, AMG | Terraform | AWS 관리형 모니터링 |
-| ArgoCD | Terraform + Helm | GitOps CD 도구 |
-| Grafana Alloy | Terraform + Helm | OTLP 수신 → AMP/Loki |
+| Grafana Alloy | Terraform + Helm | OTLP 수신 → Prometheus/Loki |
 | Loki | Terraform + Helm | 로그 저장소 (S3) |
-| Redis Exporter | Terraform + k8s | Valkey 메트릭 수집 |
+| Prometheus | Terraform + Helm | 메트릭 저장소 |
+| Grafana | Terraform + Helm | 대시보드 (ALB Ingress로 외부 노출) |
+| Redis Exporter | Terraform + Helm | Valkey 메트릭 수집 |
 
-### ArgoCD가 관리하는 항목
+### Kustomize로 배포하는 항목
 
 | 컴포넌트 | 배포 방식 | 설명 |
 |----------|-----------|------|
-| queue-api | ArgoCD + Kustomize | 대기열 API (HPA 지원) |
-| queue-manager | ArgoCD + Kustomize | 티켓 발급 스케줄러 |
-| chat-server | ArgoCD + Kustomize | WebSocket 게임 서버 |
+| queue-api | Kustomize | 대기열 API (HPA 지원) |
+| queue-manager | Kustomize | 티켓 발급 스케줄러 |
+| chat-server | Kustomize | WebSocket 게임 서버 |
 
 ## 모니터링 데이터 흐름
 
@@ -215,39 +250,50 @@ flowchart LR
         RE[Redis Exporter]
     end
 
-    subgraph AWS["AWS Managed Services"]
-        AMP[Amazon Managed<br/>Prometheus]
+    subgraph Storage["Storage (EKS)"]
+        PROM[Prometheus]
         LOKI[Loki] --> S3[(S3)]
-        AMG[Amazon Managed<br/>Grafana]
+        GRAF[Grafana]
     end
 
-    QA & QM & CS -->|OTLP| ALLOY
+    QA & QM -->|OTLP HTTP :4318| ALLOY
+    CS -->|OTLP gRPC :4317| ALLOY
     ALLOY -->|Scrape| RE
-    ALLOY -->|Remote Write| AMP
+    ALLOY -->|Remote Write| PROM
     ALLOY -->|Push| LOKI
-    AMP & LOKI --> AMG
+    PROM & LOKI --> GRAF
 ```
 
 ## 배포 순서
 
 ```mermaid
 flowchart TD
-    A[1. Terraform Apply] -->|AWS 인프라 + Helm| B[자동 배포 완료]
-    B --> B1[EKS, VPC, Valkey]
-    B --> B2[AMP, AMG]
-    B --> B3[ArgoCD]
-    B --> B4[Alloy, Loki, Redis Exporter]
+    A[1. ECR 배포] -->|terraform apply| B[ECR 리포지토리 생성]
+    B --> C[2. 이미지 빌드/푸시]
+    C --> D[docker build & push]
+    D --> E[3. Terraform Apply]
+    E -->|AWS 인프라 + Helm| F[자동 배포 완료]
+    F --> F1[EKS, VPC, Valkey]
+    F --> F2[Prometheus, Grafana]
+    F --> F3[Alloy, Loki, Redis Exporter]
     
-    B --> C[2. kubectl 설정]
-    C --> D[3. ArgoCD에 App 등록]
-    D --> E[4. queue-system 자동 동기화]
+    F --> G[4. kubectl 설정]
+    G --> H[5. Kustomize로 앱 배포]
+    H --> I[kubectl apply -k]
 ```
 
 ## 정리 (삭제)
 
 ```bash
-# Terraform으로 모든 리소스 삭제 (Helm 포함)
+# 애플리케이션 삭제
+kubectl delete -k k8s/overlays/dev  # 또는 prod
+
+# 서비스 인프라 삭제
 cd terraform
+terraform destroy -var-file=dev.tfvars  # 또는 prod.tfvars
+
+# ECR 삭제 (이미지가 있으면 먼저 삭제 필요)
+cd ../ecr
 terraform destroy
 ```
 
@@ -267,9 +313,19 @@ terraform output -raw valkey_endpoint
 kubectl get secret valkey-secret -n queue-system -o yaml
 ```
 
-### Alloy가 AMP에 연결되지 않는 경우
+### Alloy가 Prometheus에 연결되지 않는 경우
 
 ```bash
 kubectl describe sa alloy -n observability
 kubectl logs -l app.kubernetes.io/name=alloy -n observability
 ```
+
+### Helm 배포(Loki 등)가 오래 걸리거나 실패하는 경우
+
+Loki와 같은 무거운 Helm 차트 배포 시 `Pending` 상태로 멈추거나 타임아웃이 발생한다면, EKS 노드의 리소스 부족 또는 Pod 개수 제한(Max Pods)에 도달했을 가능성이 높습니다.
+
+**해결 방법:**
+
+1. **노드 인스턴스 타입 상향**: `t4g.small` 등 작은 인스턴스는 노드당 실행 가능한 Pod 수가 적습니다 (예: t4g.small은 11개). `t4g.medium` 이상으로 변경하세요.
+2. **노드 수 증가**: 노드 그룹의 `desired_size`를 늘려 Pod를 분산시키세요.
+

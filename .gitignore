@@ -15,6 +15,8 @@ crash.*.log
 # to change depending on the environment.
 *.tfvars
 *.tfvars.json
+# Include example tfvars files you do wish to add to version control using negated pattern
+!sample.tfvars
 
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
