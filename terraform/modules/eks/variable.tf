@@ -17,3 +17,8 @@ variable "cluster_version" {
   description = "EKS Kubernetes control plane version"
   type        = string
 }
+
+variable "vpc_id" {
+  description = "VPC ID for EKS cluster"
+  type        = string
+}

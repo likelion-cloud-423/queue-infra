@@ -44,4 +44,22 @@ resource "aws_eks_cluster" "this" {
     aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.eks_cluster_AmazonEKSVPCResourceController
   ]
+
+  # VPC ID 참조로 암묵적 의존성 생성 (destroy 순서 보장)
+  tags = {
+    "vpc_id" = var.vpc_id
+  }
+}
+
+# EBS CSI Driver Addon
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "aws-ebs-csi-driver"
+  # addon_version = "v1.39.0-eksbuild.1" # 버전 생략하여 호환되는 버전 자동 선택
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_eks_node_group.team3_node_group
+  ]
 }

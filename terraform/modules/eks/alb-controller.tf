@@ -64,37 +64,19 @@ resource "helm_release" "alb_controller" {
   chart      = "aws-load-balancer-controller"
   version    = "1.8.1"
 
-  set = [
-    # --set clusterName=team3-eks-cluster
-    {
-      name  = "clusterName"
-      value = aws_eks_cluster.this.name
-    },
-    # --set serviceAccount.create=true
-    {
-      name  = "serviceAccount.create"
-      value = "true"
-    },
-    # --set serviceAccount.name=aws-load-balancer-controller
-    {
-      name  = "serviceAccount.name"
-      value = "aws-load-balancer-controller"
-    },
-    # --set region=ap-northeast-2
-    {
-      name  = "region"
-      value = "ap-northeast-2"
-    },
-    # --set vpcId=...
-    {
-      name  = "vpcId"
-      value = aws_eks_cluster.this.vpc_config[0].vpc_id
-    },
-    # --set serviceAccount.annotations."eks\\.amazonaws\\.com/role-arn"="ROLE_ARN"
-    {
-      name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-      value = aws_iam_role.alb_controller_role.arn
-    }
+  values = [
+    yamlencode({
+      clusterName = aws_eks_cluster.this.name
+      region      = "ap-northeast-2"
+      vpcId       = aws_eks_cluster.this.vpc_config[0].vpc_id
+      serviceAccount = {
+        create = true
+        name   = "aws-load-balancer-controller"
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.alb_controller_role.arn
+        }
+      }
+    })
   ]
 }
 
