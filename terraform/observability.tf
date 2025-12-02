@@ -12,72 +12,6 @@ resource "aws_prometheus_workspace" "this" {
 }
 
 # =============================================================================
-# Amazon Managed Grafana (AMG)
-# =============================================================================
-
-resource "aws_grafana_workspace" "this" {
-  name                     = "${var.name_prefix}-grafana"
-  account_access_type      = "CURRENT_ACCOUNT"
-  authentication_providers = ["AWS_SSO"]
-  permission_type          = "SERVICE_MANAGED"
-  role_arn                 = aws_iam_role.grafana_role.arn
-
-  data_sources = ["PROMETHEUS"]
-
-  tags = {
-    Name    = "${var.name_prefix}-grafana"
-    Project = "queue-system"
-  }
-}
-
-# IAM Role for Grafana
-resource "aws_iam_role" "grafana_role" {
-  name = "${var.name_prefix}-grafana-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "grafana.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-
-  tags = {
-    Name    = "${var.name_prefix}-grafana-role"
-    Project = "queue-system"
-  }
-}
-
-# Grafana가 AMP에서 메트릭을 읽을 수 있도록 권한 부여
-resource "aws_iam_role_policy" "grafana_prometheus_policy" {
-  name = "${var.name_prefix}-grafana-prometheus-policy"
-  role = aws_iam_role.grafana_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "aps:ListWorkspaces",
-          "aps:DescribeWorkspace",
-          "aps:QueryMetrics",
-          "aps:GetLabels",
-          "aps:GetSeries",
-          "aps:GetMetricMetadata"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-# =============================================================================
 # S3 Bucket for Loki Storage
 # =============================================================================
 
@@ -224,42 +158,4 @@ resource "aws_iam_role_policy" "loki_s3_policy" {
       }
     ]
   })
-}
-
-# =============================================================================
-# Grafana Dashboard Provisioning
-# =============================================================================
-
-# AMP Data Source for Grafana
-resource "grafana_data_source" "prometheus" {
-  depends_on = [aws_grafana_workspace.this]
-
-  name       = "Amazon Managed Prometheus"
-  type       = "prometheus"
-  uid        = "prometheus"
-  url        = aws_prometheus_workspace.this.prometheus_endpoint
-  is_default = true
-
-  json_data_encoded = jsonencode({
-    httpMethod    = "POST"
-    sigV4Auth     = true
-    sigV4AuthType = "default"
-    sigV4Region   = "ap-northeast-2"
-  })
-}
-
-# Valkey Monitoring Dashboard
-resource "grafana_dashboard" "valkey" {
-  depends_on = [grafana_data_source.prometheus]
-
-  config_json = file("${path.module}/dashboards/valkey-monitoring.json")
-  overwrite   = true
-}
-
-# Queue Server Overview Dashboard  
-resource "grafana_dashboard" "queue_server" {
-  depends_on = [grafana_data_source.prometheus]
-
-  config_json = file("${path.module}/dashboards/queue-server-overview.json")
-  overwrite   = true
 }

@@ -13,17 +13,6 @@ resource "kubernetes_namespace" "observability" {
   depends_on = [module.eks]
 }
 
-resource "kubernetes_namespace" "argocd" {
-  metadata {
-    name = "argocd"
-    labels = {
-      name = "argocd"
-    }
-  }
-
-  depends_on = [module.eks]
-}
-
 # =============================================================================
 # Observability ConfigMaps
 # =============================================================================
@@ -64,22 +53,19 @@ resource "kubernetes_config_map" "alloy_config" {
         timeout = "10s"
         send_batch_size = 1000
         output {
-          metrics = [otelcol.exporter.prometheusremotewrite.amp.input]
+          metrics = [otelcol.exporter.prometheus.default.input]
         }
       }
       
+      otelcol.exporter.prometheus "default" {
+        forward_to = [prometheus.remote_write.amp.receiver]
+      }
+
       otelcol.auth.sigv4 "amp_auth" {
         region  = env("AMP_REGION")
         service = "aps"
       }
-      
-      otelcol.exporter.prometheusremotewrite "amp" {
-        endpoint {
-          url = "https://aps-workspaces." + env("AMP_REGION") + ".amazonaws.com/workspaces/" + env("AMP_WORKSPACE_ID") + "/api/v1/remote_write"
-          auth = otelcol.auth.sigv4.amp_auth.handler
-        }
-      }
-      
+
       otelcol.exporter.loki "default" {
         forward_to = [loki.write.default.receiver]
       }
@@ -100,7 +86,10 @@ resource "kubernetes_config_map" "alloy_config" {
       discovery.kubernetes "queue_api" {
         role = "pod"
         namespaces { names = ["queue-system"] }
-        selectors { role = "pod"; label = "app=queue-api" }
+        selectors {
+          role = "pod"
+          label = "app=queue-api"
+        }
       }
       
       prometheus.scrape "queue_api" {
@@ -114,7 +103,10 @@ resource "kubernetes_config_map" "alloy_config" {
       discovery.kubernetes "queue_manager" {
         role = "pod"
         namespaces { names = ["queue-system"] }
-        selectors { role = "pod"; label = "app=queue-manager" }
+        selectors {
+          role = "pod"
+          label = "app=queue-manager"
+        }
       }
       
       prometheus.scrape "queue_manager" {
@@ -234,7 +226,7 @@ resource "helm_release" "loki" {
   namespace  = kubernetes_namespace.observability.metadata[0].name
   repository = "https://grafana.github.io/helm-charts"
   chart      = "loki"
-  version    = "6.16.0"
+  version    = "6.46.0"
 
   values = [
     yamlencode({
@@ -243,6 +235,7 @@ resource "helm_release" "loki" {
         auth_enabled = false
         commonConfig = {
           replication_factor = 1
+          path_prefix        = "/var/loki"
         }
         schemaConfig = {
           configs = [
@@ -259,30 +252,23 @@ resource "helm_release" "loki" {
           ]
         }
         storage = {
+          type = "s3"
           bucketNames = {
             chunks = aws_s3_bucket.loki.id
             ruler  = aws_s3_bucket.loki.id
             admin  = aws_s3_bucket.loki.id
           }
-          type = "s3"
           s3 = {
             region           = "ap-northeast-2"
             s3ForcePathStyle = false
           }
         }
       }
-      singleBinary = {
-        replicas = 1
-        resources = {
-          requests = {
-            cpu    = "100m"
-            memory = "256Mi"
-          }
-          limits = {
-            cpu    = "500m"
-            memory = "512Mi"
-          }
-        }
+      chunksCache = {
+        allocatedMemory = 512
+      }
+      resultsCache = {
+        allocatedMemory = 512
       }
       serviceAccount = {
         create = true
@@ -293,6 +279,10 @@ resource "helm_release" "loki" {
       }
       test = {
         enabled = false
+      }
+      persistence = {
+        enabled = true
+        size    = "10Gi"
       }
       monitoring = {
         selfMonitoring = {
@@ -307,7 +297,8 @@ resource "helm_release" "loki" {
 
   depends_on = [
     kubernetes_namespace.observability,
-    aws_iam_role.loki_role
+    aws_iam_role.loki_role,
+    module.eks
   ]
 }
 
@@ -320,7 +311,7 @@ resource "helm_release" "alloy" {
   namespace  = kubernetes_namespace.observability.metadata[0].name
   repository = "https://grafana.github.io/helm-charts"
   chart      = "alloy"
-  version    = "0.9.2"
+  version    = "1.4.0"
 
   values = [
     yamlencode({
@@ -379,7 +370,8 @@ resource "helm_release" "alloy" {
     kubernetes_config_map.alloy_config,
     kubernetes_config_map.observability_config,
     aws_iam_role.alloy_role,
-    helm_release.loki
+    helm_release.loki,
+    module.eks
   ]
 }
 
@@ -387,99 +379,177 @@ resource "helm_release" "alloy" {
 # ArgoCD Helm Release
 # =============================================================================
 
-resource "helm_release" "argocd" {
-  name       = "argocd"
-  namespace  = kubernetes_namespace.argocd.metadata[0].name
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argo-cd"
-  version    = "7.7.5"
+# =============================================================================
+# Grafana Helm Release
+# =============================================================================
+
+resource "helm_release" "grafana" {
+  name       = "grafana"
+  namespace  = kubernetes_namespace.observability.metadata[0].name
+  repository = "https://grafana.github.io/helm-charts"
+  chart      = "grafana"
+  version    = "10.3.0"
 
   values = [
     yamlencode({
-      global = {
-        domain = "argocd.${var.name_prefix}.local"
+      adminUser     = var.grafana_admin_user
+      adminPassword = var.grafana_admin_password
+
+      persistence = {
+        enabled = true
+        size    = "10Gi"
       }
-      server = {
-        extraArgs = ["--insecure"]
-        ingress = {
-          enabled          = true
-          ingressClassName = "alb"
-          annotations = {
-            "alb.ingress.kubernetes.io/scheme"                  = "internet-facing"
-            "alb.ingress.kubernetes.io/target-type"             = "ip"
-            "alb.ingress.kubernetes.io/listen-ports"            = "[{\"HTTP\":80}]"
-            "alb.ingress.kubernetes.io/group.name"              = "argocd"
-          }
-        }
-        resources = {
-          requests = {
-            cpu    = "100m"
-            memory = "128Mi"
-          }
-          limits = {
-            cpu    = "500m"
-            memory = "512Mi"
-          }
-        }
-      }
-      controller = {
-        resources = {
-          requests = {
-            cpu    = "100m"
-            memory = "256Mi"
-          }
-          limits = {
-            cpu    = "500m"
-            memory = "512Mi"
-          }
+
+      datasources = {
+        "datasources.yaml" = {
+          apiVersion = 1
+          datasources = [
+            {
+              name      = "Prometheus"
+              type      = "prometheus"
+              url       = "https://aps-workspaces.ap-northeast-2.amazonaws.com/workspaces/${aws_prometheus_workspace.this.id}"
+              access    = "proxy"
+              isDefault = true
+              jsonData = {
+                httpMethod    = "POST"
+                sigV4Auth     = true
+                sigV4AuthType = "default"
+                sigV4Region   = "ap-northeast-2"
+              }
+            },
+            {
+              name   = "Loki"
+              type   = "loki"
+              url    = "http://loki:3100"
+              access = "proxy"
+            }
+          ]
         }
       }
-      repoServer = {
-        resources = {
-          requests = {
-            cpu    = "100m"
-            memory = "128Mi"
-          }
-          limits = {
-            cpu    = "500m"
-            memory = "256Mi"
-          }
+
+      dashboardProviders = {
+        "dashboardproviders.yaml" = {
+          apiVersion = 1
+          providers = [
+            {
+              name            = "default"
+              orgId           = 1
+              folder          = ""
+              type            = "file"
+              disableDeletion = false
+              editable        = true
+              options = {
+                path = "/var/lib/grafana/dashboards/default"
+              }
+            }
+          ]
         }
       }
-      applicationSet = {
-        resources = {
-          requests = {
-            cpu    = "50m"
-            memory = "64Mi"
+
+      dashboards = {
+        default = {
+          queue-system = {
+            json = file("${path.module}/dashboards/queue-system.json")
           }
-          limits = {
-            cpu    = "200m"
-            memory = "128Mi"
-          }
-        }
-      }
-      redis = {
-        resources = {
-          requests = {
-            cpu    = "50m"
-            memory = "64Mi"
-          }
-          limits = {
-            cpu    = "200m"
-            memory = "128Mi"
+          valkey = {
+            json = file("${path.module}/dashboards/valkey.json")
           }
         }
       }
-      configs = {
-        params = {
-          "server.insecure" = true
+
+      serviceAccount = {
+        create = true
+        name   = "grafana"
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.grafana_role.arn
+        }
+      }
+
+      ingress = {
+        enabled          = true
+        ingressClassName = "alb"
+        annotations = {
+          "alb.ingress.kubernetes.io/scheme"                  = "internet-facing"
+          "alb.ingress.kubernetes.io/target-type"             = "ip"
+          "alb.ingress.kubernetes.io/listen-ports"            = "[{\"HTTP\":80}]"
+          "alb.ingress.kubernetes.io/group.name"              = "grafana"
+          "alb.ingress.kubernetes.io/healthcheck-path"        = "/api/health"
+          "alb.ingress.kubernetes.io/success-codes"           = "200"
+        }
+        hosts = []
+      }
+
+      resources = {
+        requests = {
+          cpu    = "100m"
+          memory = "128Mi"
+        }
+        limits = {
+          cpu    = "500m"
+          memory = "512Mi"
         }
       }
     })
   ]
 
   depends_on = [
-    kubernetes_namespace.argocd,
+    kubernetes_namespace.observability,
+    helm_release.loki,
+    aws_iam_role.grafana_role,
     module.eks
   ]
+}
+
+# =============================================================================
+# Grafana IAM Role (IRSA)
+# =============================================================================
+
+resource "aws_iam_role" "grafana_role" {
+  name = "${var.name_prefix}-grafana-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = module.eks.oidc_provider_arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${module.eks.oidc_provider_url}:sub" = "system:serviceaccount:observability:grafana"
+            "${module.eks.oidc_provider_url}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name    = "${var.name_prefix}-grafana-role"
+    Project = "queue-system"
+  }
+}
+
+# Grafana가 AMP에서 메트릭을 읽을 수 있도록 권한 부여
+resource "aws_iam_role_policy" "grafana_prometheus_policy" {
+  name = "${var.name_prefix}-grafana-prometheus-policy"
+  role = aws_iam_role.grafana_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "aps:QueryMetrics",
+          "aps:GetLabels",
+          "aps:GetSeries",
+          "aps:GetMetricMetadata"
+        ]
+        Resource = aws_prometheus_workspace.this.arn
+      }
+    ]
+  })
 }
