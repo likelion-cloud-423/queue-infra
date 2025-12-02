@@ -259,13 +259,13 @@ resource "helm_release" "loki" {
           ]
         }
         storage = {
+          bucketNames = {
+            chunks = aws_s3_bucket.loki.id
+            ruler  = aws_s3_bucket.loki.id
+            admin  = aws_s3_bucket.loki.id
+          }
           type = "s3"
           s3 = {
-            bucketNames = {
-              chunks = aws_s3_bucket.loki.id
-              ruler  = aws_s3_bucket.loki.id
-              admin  = aws_s3_bucket.loki.id
-            }
             region           = "ap-northeast-2"
             s3ForcePathStyle = false
           }
