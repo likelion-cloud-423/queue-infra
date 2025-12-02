@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: amp-config
-  namespace: observability
-data:
-  AMP_WORKSPACE_ID: "<Terraform 팀이 output으로 준 실제 ID>"

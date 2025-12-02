@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chat-server
-  namespace: queue-system
   labels:
     app: chat-server
 spec:
@@ -21,18 +20,19 @@ spec:
           imagePullPolicy: Always
           ports:
             - name: http
-              containerPort: 8080 # ★ 여기 8080
-
+              containerPort: 8080
           env:
             - name: ConnectionStrings__Valkey
               valueFrom:
                 secretKeyRef:
                   name: valkey-secret
                   key: ConnectionStrings__Valkey
-
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
-
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://alloy.observability.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "chat-server"
           resources:
             requests:
               cpu: "50m"
@@ -40,18 +40,16 @@ spec:
             limits:
               cpu: "200m"
               memory: "256Mi"
-
           readinessProbe:
             tcpSocket:
-              port: 8080 # 8080
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 1
             failureThreshold: 3
-
           livenessProbe:
             tcpSocket:
-              port: 8080 # 8080
+              port: 8080
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 1

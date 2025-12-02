@@ -1,0 +1,35 @@
+# Alloy Helm Values for EKS
+# Install: helm upgrade --install alloy grafana/alloy -n observability -f alloy-values.yaml
+
+alloy:
+  configMap:
+    create: false
+    name: alloy-config
+    key: config.alloy
+  extraEnv:
+    - name: AMP_WORKSPACE_ID
+      valueFrom:
+        configMapKeyRef:
+          name: observability-config
+          key: AMP_WORKSPACE_ID
+    - name: AMP_REGION
+      valueFrom:
+        configMapKeyRef:
+          name: observability-config
+          key: AMP_REGION
+    - name: LOKI_ENDPOINT
+      valueFrom:
+        configMapKeyRef:
+          name: observability-config
+          key: LOKI_ENDPOINT
+
+serviceAccount:
+  create: true
+  name: alloy
+  annotations:
+    # Replace with terraform output: alloy_role_arn
+    eks.amazonaws.com/role-arn: "<ALLOY_ROLE_ARN>"
+
+controller:
+  type: deployment
+  replicas: 1

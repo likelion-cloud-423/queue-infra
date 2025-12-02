@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: queue-api
-  namespace: queue-system
   labels:
     app: queue-api
 spec:
@@ -19,25 +18,23 @@ spec:
         - name: queue-api
           image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/queue-api:latest
           imagePullPolicy: Always
-
           env:
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://adot-collector.observability.svc.cluster.local:4318/v1/metrics"
+              value: "http://alloy.observability.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: "queue-api"
             - name: SPRING_DATA_REDIS_HOST
               valueFrom:
                 secretKeyRef:
                   name: valkey-secret
                   key: SPRING_DATA_REDIS_HOST
-
             - name: SPRING_DATA_REDIS_PORT
               valueFrom:
                 secretKeyRef:
                   name: valkey-secret
                   key: SPRING_DATA_REDIS_PORT
-
           ports:
             - containerPort: 8080
-
           resources:
             requests:
               cpu: "100m"
@@ -45,21 +42,19 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
-
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 30 # 컨테이너 뜨고 30초 뒤부터 체크 시작
-            periodSeconds: 10 # 10초마다 체크
-            timeoutSeconds: 3 # 3초 안에 응답 없으면 실패
-            failureThreshold: 5 # 5번 연속 실패해야 진짜 실패로 간주
-
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 60 # 완전히 자리잡고 60초 후부터 체크
-            periodSeconds: 20 # 20초마다 체크
+            initialDelaySeconds: 60
+            periodSeconds: 20
             timeoutSeconds: 3
             failureThreshold: 5

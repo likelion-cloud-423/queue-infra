@@ -10,15 +10,33 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.12"
     }
-    kubernetes = {                # ✅ 새로 추가
+    kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~> 2.30"
+    }
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 3.0"
     }
   }
 }
 
 provider "aws" {
   region = "ap-northeast-2"
+}
+
+# Grafana Provider - Amazon Managed Grafana
+provider "grafana" {
+  url  = "https://${aws_grafana_workspace.this.endpoint}"
+  auth = aws_grafana_workspace_api_key.terraform.key
+}
+
+# API Key for Terraform to manage Grafana resources
+resource "aws_grafana_workspace_api_key" "terraform" {
+  key_name        = "terraform"
+  key_role        = "ADMIN"
+  seconds_to_live = 2592000 # 30 days
+  workspace_id    = aws_grafana_workspace.this.id
 }
 
 module "vpc" {

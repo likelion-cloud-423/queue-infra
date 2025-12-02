@@ -4,4 +4,3 @@ metadata:
   name: observability
   labels:
     name: observability
-    app.kubernetes.io/part-of: observability

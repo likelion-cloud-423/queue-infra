@@ -2,18 +2,13 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: queue-api-hpa
-  namespace: queue-system
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: queue-api
-
-  # 최소 / 최대 replica 수
   minReplicas: 3
   maxReplicas: 100
-
-  # CPU 사용률 기반 자동 확장
   metrics:
     - type: Resource
       resource:

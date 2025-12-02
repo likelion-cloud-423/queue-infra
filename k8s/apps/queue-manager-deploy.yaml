@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: queue-manager
-  namespace: queue-system
   labels:
     app: queue-manager
 spec:
@@ -19,23 +18,23 @@ spec:
         - name: queue-manager
           image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/queue-manager:latest
           imagePullPolicy: Always
-
           env:
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://adot-collector.observability.svc.cluster.local:4318/v1/metrics"
-
+              value: "http://alloy.observability.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: "queue-manager"
             - name: SPRING_DATA_REDIS_HOST
               valueFrom:
                 secretKeyRef:
                   name: valkey-secret
                   key: SPRING_DATA_REDIS_HOST
-
             - name: SPRING_DATA_REDIS_PORT
               valueFrom:
                 secretKeyRef:
                   name: valkey-secret
                   key: SPRING_DATA_REDIS_PORT
-
+          ports:
+            - containerPort: 8081
           resources:
             requests:
               cpu: "50m"
@@ -43,3 +42,19 @@ spec:
             limits:
               cpu: "300m"
               memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5

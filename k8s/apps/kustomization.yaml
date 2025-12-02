@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: queue-system
+
+resources:
+  - queue-system.yaml
+  - queue-api-deploy.yaml
+  - queue-api-service.yaml
+  - queue-api-hpa.yaml
+  - queue-manager-deploy.yaml
+  - chat-server-deploy.yaml
+  - chat-server-service.yaml
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: queue-system
