@@ -8,8 +8,8 @@ resource "kubernetes_secret" "valkey_connection" {
 
 
   data = {
-    SPRING_DATA_REDIS_HOST    = var.valkey_endpoint          
-    SPRING_DATA_REDIS_PORT    = "6379"                       
+    SPRING_DATA_REDIS_HOST    = var.valkey_endpoint
+    SPRING_DATA_REDIS_PORT    = "6379"
     ConnectionStrings__Valkey = "${var.valkey_endpoint}:6379"
   }
 

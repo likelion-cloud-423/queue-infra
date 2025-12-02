@@ -103,10 +103,10 @@ resource "aws_security_group_rule" "valkey_ingress_from_eks" {
   to_port     = 6379
   protocol    = "tcp"
 
-  
+
   security_group_id = aws_security_group.valkey_sg.id
 
-  
+
   source_security_group_id = data.aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 
   depends_on = [module.eks, data.aws_eks_cluster.this]

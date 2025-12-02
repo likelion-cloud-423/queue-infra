@@ -1,13 +1,13 @@
 output "vpc_id" {
-  value       = module.vpc.vpc_id
+  value = module.vpc.vpc_id
 }
 
 output "public_subnet_ids" {
-  value       = module.vpc.public_subnet_ids
+  value = module.vpc.public_subnet_ids
 }
 
 output "private_subnet_ids" {
-  value       = module.vpc.private_subnet_ids
+  value = module.vpc.private_subnet_ids
 }
 
 output "valkey_endpoint" {
@@ -19,14 +19,9 @@ output "valkey_endpoint" {
 # Observability Outputs
 # =============================================================================
 
-output "amp_workspace_id" {
-  description = "Amazon Managed Prometheus workspace ID"
-  value       = aws_prometheus_workspace.this.id
-}
-
-output "amp_workspace_endpoint" {
-  description = "Amazon Managed Prometheus workspace endpoint"
-  value       = aws_prometheus_workspace.this.prometheus_endpoint
+output "prometheus_url" {
+  description = "Prometheus server URL"
+  value       = "http://prometheus-server.observability.svc.cluster.local"
 }
 
 output "grafana_url" {
@@ -55,5 +50,5 @@ output "loki_s3_bucket" {
 
 output "queue_system_url" {
   description = "Queue System URL (get from ALB after deployment)"
-  value       = var.queue_system_enabled ? "Run: kubectl get ingress queue-ingress -n queue-system" : "Queue System not enabled"
+  value       = "Run: kubectl get ingress queue-ingress -n queue-system"
 }

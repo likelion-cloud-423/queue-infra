@@ -1,0 +1,73 @@
+// Grafana Alloy Configuration for EKS
+
+// OTLP Receiver - applications can send metrics/logs via OTEL
+otelcol.receiver.otlp "default" {
+  grpc { endpoint = "0.0.0.0:4317" }
+  http { endpoint = "0.0.0.0:4318" }
+  output {
+    metrics = [otelcol.processor.transform.metrics.input]
+    logs    = [otelcol.processor.attributes.default.input]
+  }
+}
+
+// Add service label from resource attributes to metrics
+otelcol.processor.transform "metrics" {
+  error_mode = "ignore"
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      "set(attributes[\"service\"], resource.attributes[\"service.name\"])",
+    ]
+  }
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Add service.name from resource attributes to log attributes
+otelcol.processor.attributes "default" {
+  action {
+    key = "service_name"
+    from_attribute = "service.name"
+    action = "insert"
+  }
+  output {
+    logs = [otelcol.exporter.loki.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  timeout = "10s"
+  send_batch_size = 1000
+  output {
+    metrics = [otelcol.exporter.prometheus.default.input]
+  }
+}
+
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+  }
+}
+
+// Redis Exporter - scraped directly by Alloy
+prometheus.scrape "redis_exporter" {
+  targets = [{ __address__ = "redis-exporter.observability.svc.cluster.local:9121" }]
+  forward_to = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
+  job_name = "elasticache-valkey"
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus-server.observability.svc.cluster.local/api/v1/write"
+  }
+}

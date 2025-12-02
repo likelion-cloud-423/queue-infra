@@ -1,17 +1,4 @@
 # =============================================================================
-# Amazon Managed Service for Prometheus (AMP)
-# =============================================================================
-
-resource "aws_prometheus_workspace" "this" {
-  alias = "${var.name_prefix}-prometheus"
-
-  tags = {
-    Name    = "${var.name_prefix}-prometheus"
-    Project = "queue-system"
-  }
-}
-
-# =============================================================================
 # S3 Bucket for Loki Storage
 # =============================================================================
 
@@ -53,6 +40,7 @@ data "aws_caller_identity" "current" {}
 # Grafana Alloy IAM Role (IRSA)
 # =============================================================================
 
+# Alloy IAM Role is kept for potential future AWS integrations
 resource "aws_iam_role" "alloy_role" {
   name = "${var.name_prefix}-alloy-role"
 
@@ -79,28 +67,6 @@ resource "aws_iam_role" "alloy_role" {
     Name    = "${var.name_prefix}-alloy-role"
     Project = "queue-system"
   }
-}
-
-# Alloy가 AMP에 메트릭을 쓸 수 있도록 권한 부여
-resource "aws_iam_role_policy" "alloy_prometheus_write_policy" {
-  name = "${var.name_prefix}-alloy-prometheus-write-policy"
-  role = aws_iam_role.alloy_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "aps:RemoteWrite",
-          "aps:GetSeries",
-          "aps:GetLabels",
-          "aps:GetMetricMetadata"
-        ]
-        Resource = aws_prometheus_workspace.this.arn
-      }
-    ]
-  })
 }
 
 # =============================================================================

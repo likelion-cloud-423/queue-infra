@@ -5,14 +5,14 @@ resource "aws_eks_node_group" "team3_node_group" {
   subnet_ids      = var.private_subnet_ids
 
   scaling_config {
-    desired_size = 2
-    min_size     = 2
-    max_size     = 2
+    desired_size = var.node_desired_size
+    min_size     = var.node_min_size
+    max_size     = var.node_max_size
   }
 
   capacity_type  = "ON_DEMAND"
-  instance_types = ["t4g.medium"]
-  ami_type       = "BOTTLEROCKET_ARM_64" # https://aws.amazon.com/ko/bottlerocket/
+  instance_types = var.node_instance_types
+  ami_type       = "BOTTLEROCKET_ARM_64"
 
   tags = {
     Name = "${var.cluster_name}-node-group"
