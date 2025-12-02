@@ -29,14 +29,9 @@ output "amp_workspace_endpoint" {
   value       = aws_prometheus_workspace.this.prometheus_endpoint
 }
 
-output "grafana_workspace_id" {
-  description = "Amazon Managed Grafana workspace ID"
-  value       = aws_grafana_workspace.this.id
-}
-
-output "grafana_workspace_endpoint" {
-  description = "Amazon Managed Grafana workspace endpoint URL"
-  value       = aws_grafana_workspace.this.endpoint
+output "grafana_url" {
+  description = "Grafana URL (get from ALB after deployment)"
+  value       = "Run: kubectl get ingress grafana -n observability"
 }
 
 output "alloy_role_arn" {
@@ -55,15 +50,10 @@ output "loki_s3_bucket" {
 }
 
 # =============================================================================
-# ArgoCD Outputs
+# Queue System Outputs
 # =============================================================================
 
-output "argocd_server_url" {
-  description = "ArgoCD server URL (get from ALB after deployment)"
-  value       = "Run: kubectl get ingress -n argocd"
-}
-
-output "argocd_initial_admin_password" {
-  description = "Command to get ArgoCD initial admin password"
-  value       = "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
+output "queue_system_url" {
+  description = "Queue System URL (get from ALB after deployment)"
+  value       = var.queue_system_enabled ? "Run: kubectl get ingress queue-ingress -n queue-system" : "Queue System not enabled"
 }
