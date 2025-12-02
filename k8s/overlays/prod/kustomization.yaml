@@ -1,0 +1,41 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: queue-system
+
+# ECR 이미지 설정 (prod 계정)
+images:
+  - name: queue-api
+    newName: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/queue-api
+    newTag: latest
+
+  - name: queue-manager
+    newName: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/queue-manager
+    newTag: latest
+
+  - name: chat-server
+    newName: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/chat-server
+    newTag: latest
+
+# Replicas 설정 (운영)
+replicas:
+  - name: queue-api
+    count: 3
+
+  - name: queue-manager
+    count: 1
+
+  - name: chat-server
+    count: 1
+
+# HPA 패치
+patches:
+  - path: hpa-patch.yaml
+
+labels:
+  - pairs:
+      environment: prod
+    includeSelectors: false

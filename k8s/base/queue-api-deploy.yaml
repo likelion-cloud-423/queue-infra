@@ -5,7 +5,7 @@ metadata:
   labels:
     app: queue-api
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: queue-api
@@ -16,13 +16,24 @@ spec:
     spec:
       containers:
         - name: queue-api
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/queue-api:latest
+          image: queue-api:latest
           imagePullPolicy: Always
           env:
+            # OTLP HTTP for logs and metrics
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://alloy.observability.svc.cluster.local:4318"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "http/protobuf"
             - name: OTEL_SERVICE_NAME
               value: "queue-api"
+            - name: OTEL_LOGS_EXPORTER
+              value: "otlp"
+            - name: OTEL_METRICS_EXPORTER
+              value: "none"
+            - name: OTEL_TRACES_EXPORTER
+              value: "none"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=queue-api,service.namespace=queue-system"
             - name: SPRING_DATA_REDIS_HOST
               valueFrom:
                 secretKeyRef:

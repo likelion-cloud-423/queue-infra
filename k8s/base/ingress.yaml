@@ -3,13 +3,13 @@ kind: Ingress
 metadata:
   name: queue-ingress
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     alb.ingress.kubernetes.io/group.name: queue-system
     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=1200
 spec:
+  ingressClassName: alb
   rules:
     - http:
         paths:

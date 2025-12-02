@@ -13,5 +13,7 @@ resources:
   - chat-server-service.yaml
   - ingress.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: queue-system
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: queue-system
+    includeSelectors: false

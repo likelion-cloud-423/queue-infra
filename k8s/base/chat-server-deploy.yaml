@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: chat-server
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/chat-server:latest
+          image: chat-server:latest
           imagePullPolicy: Always
           ports:
             - name: http

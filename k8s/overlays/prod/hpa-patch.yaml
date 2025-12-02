@@ -8,11 +8,4 @@ spec:
     kind: Deployment
     name: queue-api
   minReplicas: 3
-  maxReplicas: 100
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 60
+  maxReplicas: 30
