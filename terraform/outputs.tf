@@ -10,6 +10,11 @@ output "private_subnet_ids" {
   value       = module.vpc.private_subnet_ids
 }
 
+output "valkey_endpoint" {
+  description = "ElastiCache Valkey primary endpoint"
+  value       = aws_elasticache_replication_group.valkey.primary_endpoint_address
+}
+
 # =============================================================================
 # Observability Outputs
 # =============================================================================
@@ -47,4 +52,18 @@ output "loki_role_arn" {
 output "loki_s3_bucket" {
   description = "S3 bucket name for Loki storage"
   value       = aws_s3_bucket.loki.id
+}
+
+# =============================================================================
+# ArgoCD Outputs
+# =============================================================================
+
+output "argocd_server_url" {
+  description = "ArgoCD server URL (get from ALB after deployment)"
+  value       = "Run: kubectl get ingress -n argocd"
+}
+
+output "argocd_initial_admin_password" {
+  description = "Command to get ArgoCD initial admin password"
+  value       = "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
 }

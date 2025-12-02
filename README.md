@@ -99,7 +99,7 @@ queue-infra/
 
 ## 배포 가이드
 
-### 1. Terraform으로 AWS 인프라 배포
+### 1. Terraform으로 전체 인프라 및 Helm 배포
 
 ```bash
 cd terraform
@@ -109,8 +109,9 @@ terraform plan
 terraform apply
 ```
 
-**배포되는 리소스:**
+**Terraform이 자동으로 배포하는 리소스:**
 
+**AWS 인프라:**
 - VPC, Subnets, NAT Gateway
 - EKS Cluster + Node Group
 - ElastiCache (Valkey)
@@ -120,15 +121,18 @@ terraform apply
 - IAM Roles (IRSA)
 - ECR Repositories
 
+**Helm Charts (EKS에 자동 설치):**
+- ArgoCD
+- Grafana Alloy
+- Loki
+- Redis Exporter
+
 **Terraform 출력값 확인:**
 
 ```bash
-terraform output amp_workspace_id
-terraform output loki_s3_bucket
-terraform output alloy_role_arn
-terraform output loki_role_arn
-terraform output valkey_endpoint
 terraform output grafana_workspace_endpoint
+terraform output valkey_endpoint
+terraform output argocd_initial_admin_password  # 비밀번호 조회 명령어
 ```
 
 ### 2. kubectl 설정
@@ -137,91 +141,62 @@ terraform output grafana_workspace_endpoint
 aws eks update-kubeconfig --name team3-eks-cluster --region ap-northeast-2
 ```
 
-### 3. ArgoCD 설치 (GitOps)
+### 3. ArgoCD 접속
 
 ```bash
-# ArgoCD Helm repo 추가
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update
-
-# ArgoCD 설치
-kubectl apply -f k8s/argocd/namespace.yaml
-helm upgrade --install argocd argo/argo-cd \
-  -n argocd \
-  -f k8s/argocd/argocd-values.yaml
+# ArgoCD URL 확인
+kubectl get ingress -n argocd
 
 # 초기 admin 비밀번호 확인
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
 
-### 4. ArgoCD로 애플리케이션 배포
+### 4. ArgoCD에서 애플리케이션 등록
+
+ArgoCD UI 또는 CLI에서 queue-system 애플리케이션을 등록합니다.
 
 ```bash
 cd k8s/argocd
 
-# 1) applications/*.yaml 파일에서 다음 값 수정:
-#    - repoURL: Git 저장소 URL
-#    - <LOKI_S3_BUCKET>, <LOKI_ROLE_ARN>, <ALLOY_ROLE_ARN>
+# 1) applications/queue-system.yaml에서 repoURL 수정
 
-# 2) Project 및 Applications 배포
+# 2) Application 배포
 kubectl apply -f project.yaml
-kubectl apply -f applications/
+kubectl apply -f applications/queue-system.yaml
 ```
 
-ArgoCD가 자동으로 다음을 배포합니다:
-
-- `queue-system` - 애플리케이션 (Kustomize)
-- `observability-manifests` - ConfigMaps, Redis Exporter
-- `loki` - Loki (Helm)
-- `alloy` - Alloy (Helm)
-
-### (대안) 수동 배포
-
-ArgoCD 없이 수동으로 배포하려면:
-
-```bash
-# Observability Stack
-cd k8s/observability
-kubectl apply -f namespace.yaml
-kubectl apply -f configmap.yaml
-kubectl apply -f alloy-configmap.yaml
-
-helm repo add grafana https://grafana.github.io/helm-charts
-helm upgrade --install loki grafana/loki -n observability -f loki-values.yaml
-helm upgrade --install alloy grafana/alloy -n observability -f alloy-values.yaml
-kubectl apply -f redis-exporter.yaml
-
-# Queue System
-kubectl apply -k ../overlays/production
-```
+> **Note:** Loki, Alloy, Redis Exporter는 Terraform이 이미 설치했으므로,
+> ArgoCD에서는 queue-system (애플리케이션)만 관리하면 됩니다.
 
 ### 5. 배포 확인
 
 ```bash
 kubectl get pods -n queue-system
 kubectl get pods -n observability
+kubectl get pods -n argocd
 kubectl get ingress -n queue-system
 ```
 
 ## 배포 방식
 
-### 애플리케이션 (Kustomize)
-
-| 컴포넌트 | 설명 |
-|----------|------|
-| queue-api | 대기열 진입/상태 조회 API (HPA 지원) |
-| queue-manager | 티켓 발급 스케줄러 |
-| chat-server | WebSocket 게임 서버 |
-
-### Observability
+### Terraform이 자동 배포하는 항목
 
 | 컴포넌트 | 배포 방식 | 설명 |
 |----------|-----------|------|
-| Grafana Alloy | Helm | OTLP 수신 → AMP/Loki로 전송 |
-| Loki | Helm | 로그 저장소 (S3 백엔드) |
-| Redis Exporter | k8s manifest | Valkey 메트릭 수집 |
-| AMP | Terraform | 메트릭 저장소 (AWS 관리형) |
-| AMG | Terraform | 대시보드 (AWS 관리형) |
+| VPC, EKS, ElastiCache | Terraform | AWS 인프라 |
+| AMP, AMG | Terraform | AWS 관리형 모니터링 |
+| ArgoCD | Terraform + Helm | GitOps CD 도구 |
+| Grafana Alloy | Terraform + Helm | OTLP 수신 → AMP/Loki |
+| Loki | Terraform + Helm | 로그 저장소 (S3) |
+| Redis Exporter | Terraform + k8s | Valkey 메트릭 수집 |
+
+### ArgoCD가 관리하는 항목
+
+| 컴포넌트 | 배포 방식 | 설명 |
+|----------|-----------|------|
+| queue-api | ArgoCD + Kustomize | 대기열 API (HPA 지원) |
+| queue-manager | ArgoCD + Kustomize | 티켓 발급 스케줄러 |
+| chat-server | ArgoCD + Kustomize | WebSocket 게임 서버 |
 
 ## 모니터링 데이터 흐름
 
@@ -255,34 +230,21 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[1. Terraform Apply] -->|AWS 인프라| B[2. Terraform Output 확인]
-    B --> C[3. kubectl 설정]
-    C --> D[4. ArgoCD 설치]
-    D --> E[5. ArgoCD Applications 배포]
-    E --> F[6. 자동 동기화 완료]
+    A[1. Terraform Apply] -->|AWS 인프라 + Helm| B[자동 배포 완료]
+    B --> B1[EKS, VPC, Valkey]
+    B --> B2[AMP, AMG]
+    B --> B3[ArgoCD]
+    B --> B4[Alloy, Loki, Redis Exporter]
     
-    E --> E1[queue-system]
-    E --> E2[observability-manifests]
-    E --> E3[loki]
-    E --> E4[alloy]
+    B --> C[2. kubectl 설정]
+    C --> D[3. ArgoCD에 App 등록]
+    D --> E[4. queue-system 자동 동기화]
 ```
 
 ## 정리 (삭제)
 
 ```bash
-# ArgoCD Applications 삭제
-kubectl delete -f k8s/argocd/applications/
-kubectl delete -f k8s/argocd/project.yaml
-
-# ArgoCD 삭제
-helm uninstall argocd -n argocd
-
-# 또는 수동 배포한 경우:
-kubectl delete -k k8s/overlays/production
-helm uninstall alloy loki -n observability
-kubectl delete -f k8s/observability/
-
-# Terraform 리소스 삭제
+# Terraform으로 모든 리소스 삭제 (Helm 포함)
 cd terraform
 terraform destroy
 ```
