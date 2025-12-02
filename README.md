@@ -59,7 +59,7 @@ flowchart TB
 
 ## 디렉토리 구조
 
-```
+```plaintext
 queue-infra/
 ├── terraform/           # AWS 인프라 (VPC, EKS, ElastiCache, AMP, AMG)
 │   ├── modules/
@@ -112,6 +112,7 @@ terraform apply
 **Terraform이 자동으로 배포하는 리소스:**
 
 **AWS 인프라:**
+
 - VPC, Subnets, NAT Gateway
 - EKS Cluster + Node Group
 - ElastiCache (Valkey)
@@ -122,6 +123,7 @@ terraform apply
 - ECR Repositories
 
 **Helm Charts (EKS에 자동 설치):**
+
 - ArgoCD
 - Grafana Alloy
 - Loki
