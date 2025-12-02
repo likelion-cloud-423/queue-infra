@@ -23,3 +23,9 @@ variable "private_subnets" {
   type    = list(string)
   default = ["10.23.11.0/24", "10.23.12.0/24"]
 }
+
+variable "cluster_version" {
+  description = "EKS Kubernetes control plane version"
+  type        = string
+  default     = "1.33"
+}

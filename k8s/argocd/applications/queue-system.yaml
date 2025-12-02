@@ -9,7 +9,7 @@ spec:
   project: default
   
   source:
-    repoURL: https://github.com/<ORG>/queue-infra.git  # Replace with your repo
+    repoURL: https://github.com/likelion-cloud-423/queue-infra.git
     targetRevision: main
     path: k8s/overlays/production
   

@@ -21,14 +21,6 @@ configMapGenerator:
     literals:
       - OTEL_ENDPOINT=http://alloy.observability.svc.cluster.local
 
-# Secret generator - Valkey connection (replace with actual values)
-secretGenerator:
-  - name: valkey-secret
-    literals:
-      - SPRING_DATA_REDIS_HOST=<VALKEY_ENDPOINT>
-      - SPRING_DATA_REDIS_PORT=6379
-      - ConnectionStrings__Valkey=<VALKEY_ENDPOINT>:6379
-
 generatorOptions:
   disableNameSuffixHash: true
 

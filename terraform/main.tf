@@ -112,6 +112,7 @@ module "eks" {
   cluster_name       = "team3-eks-cluster"
   private_subnet_ids = module.vpc.private_subnet_ids
   valkey_endpoint    = aws_elasticache_replication_group.valkey.primary_endpoint_address
+  cluster_version    = var.cluster_version
 }
 
 # EKS 클러스터 정보

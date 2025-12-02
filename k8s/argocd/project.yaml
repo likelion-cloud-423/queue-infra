@@ -9,7 +9,7 @@ spec:
   description: Queue System Project
   
   sourceRepos:
-    - https://github.com/<ORG>/queue-infra.git  # Replace with your repo
+    - https://github.com/likelion-cloud-423/queue-infra.git
     - https://grafana.github.io/helm-charts
   
   destinations:

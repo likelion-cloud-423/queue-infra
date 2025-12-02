@@ -16,7 +16,7 @@ resource "aws_elasticache_replication_group" "valkey" {
   node_type      = "cache.t4g.micro"
   port           = 6379
 
-  multi_az_enabled           = false
+  multi_az_enabled           = true
   automatic_failover_enabled = true
 
   num_node_groups         = 1
