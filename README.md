@@ -92,13 +92,96 @@ queue-infra/
 
 ### 커스텀 환경 생성
 
-`terraform/sample.tfvars`를 복사하여 새 환경을 생성할 수 있습니다:
+`terraform/sample.tfvars`를 복사하여 새 환경을 생성할 수 있습니다.
+
+#### 1. 환경 파일 생성
 
 ```bash
 cd terraform
 cp sample.tfvars staging.tfvars
-# staging.tfvars 편집 후
+```
+
+#### 2. 설정 변수
+
+| 변수 | 설명 | 예시 |
+|------|------|------|
+| `environment` | 환경 이름 (태깅용) | `dev`, `staging`, `prod` |
+| `name_prefix` | 리소스 이름 접두사 | `team3-staging` |
+
+**EKS 노드 그룹 설정:**
+
+| 변수 | 설명 | dev 권장 | prod 권장 |
+|------|------|----------|-----------|
+| `node_instance_types` | EC2 인스턴스 타입 | `["t4g.medium"]` | `["t4g.large"]` |
+| `node_desired_size` | 노드 수 (기본) | `2` | `3` |
+| `node_min_size` | 최소 노드 수 | `2` | `3` |
+| `node_max_size` | 최대 노드 수 | `3` | `10` |
+
+**Valkey (ElastiCache) 설정:**
+
+| 변수 | 설명 | dev 권장 | prod 권장 |
+|------|------|----------|-----------|
+| `valkey_node_type` | 캐시 노드 타입 | `cache.t4g.micro` | `cache.t4g.medium` |
+| `valkey_multi_az` | Multi-AZ 활성화 | `false` | `true` |
+| `valkey_replicas` | 복제본 수 | `0` | `1` |
+
+> ⚠️ `valkey_multi_az = false`일 때 `valkey_replicas`는 반드시 `0`이어야 합니다.
+
+**Grafana 설정:**
+
+| 변수 | 설명 |
+|------|------|
+| `grafana_admin_user` | 관리자 계정 |
+| `grafana_admin_password` | 관리자 비밀번호 |
+
+**네트워크 설정 (선택):**
+
+| 변수 | 설명 | 기본값 |
+|------|------|--------|
+| `vpc_cidr` | VPC CIDR | `10.23.0.0/16` |
+| `azs` | 가용 영역 | `["ap-northeast-2a", "ap-northeast-2c"]` |
+| `public_subnets` | 퍼블릭 서브넷 | `["10.23.1.0/24", "10.23.2.0/24"]` |
+| `private_subnets` | 프라이빗 서브넷 | `["10.23.11.0/24", "10.23.12.0/24"]` |
+| `cluster_version` | EKS 버전 | `1.34` |
+
+#### 3. 설정 예시 (staging 환경)
+
+```hcl
+# staging.tfvars
+environment = "staging"
+name_prefix = "team3-staging"
+
+# EKS - dev보다 약간 높은 사양
+node_instance_types = ["t4g.medium"]
+node_desired_size   = 2
+node_min_size       = 2
+node_max_size       = 5
+
+# Valkey - Multi-AZ 비활성화 (비용 절감)
+valkey_node_type = "cache.t4g.small"
+valkey_multi_az  = false
+valkey_replicas  = 0
+
+# Grafana
+grafana_admin_user     = "admin"
+grafana_admin_password = "staging-secure-password"
+```
+
+#### 4. 배포
+
+```bash
 terraform apply -var-file staging.tfvars
+```
+
+#### 5. Kustomize 오버레이 추가 (선택)
+
+새 환경에 맞는 Kustomize 오버레이를 생성하려면:
+
+```bash
+# 기존 오버레이 복사
+cp -r k8s/overlays/dev k8s/overlays/staging
+
+# kustomization.yaml에서 namespace, replica 등 수정
 ```
 
 ## 사전 요구사항
@@ -145,16 +228,18 @@ docker push <ECR_REGISTRY>/chat-server:latest
 
 ### 3. Terraform으로 인프라 배포
 
+환경에 맞는 `.tfvars` 파일을 선택하여 배포합니다.
+
 ```bash
 cd terraform
 terraform init
-
-# 개발 환경 배포
-terraform apply -var-file dev.tfvars
-
-# 또는 운영 환경 배포
-terraform apply -var-file prod.tfvars
+terraform apply -var-file <ENV>.tfvars
 ```
+
+| 환경 | Terraform 설정 | Kustomize 오버레이 |
+|------|----------------|-------------------|
+| 개발 | `dev.tfvars` | `k8s/overlays/dev` |
+| 운영 | `prod.tfvars` | `k8s/overlays/prod` |
 
 **Terraform이 자동으로 배포하는 리소스:**
 
@@ -189,22 +274,24 @@ terraform output grafana_url  # ALB를 통해 접근 가능한 Grafana URL
 ### 4. kubectl 설정
 
 ```bash
-# dev 환경
-aws eks update-kubeconfig --name team3-dev-eks-cluster --region ap-northeast-2
-
-# prod 환경
-aws eks update-kubeconfig --name team3-prod-eks-cluster --region ap-northeast-2
+aws eks update-kubeconfig --name team3-<ENV>-eks-cluster --region ap-northeast-2
 ```
+
+| 환경 | 클러스터 이름 |
+|------|--------------|
+| 개발 | `team3-dev-eks-cluster` |
+| 운영 | `team3-prod-eks-cluster` |
 
 ### 5. Queue System 배포 (Kustomize)
 
 ```bash
-# 개발 환경
-kubectl apply -k k8s/overlays/dev
-
-# 운영 환경
-kubectl apply -k k8s/overlays/prod
+kubectl apply -k k8s/overlays/<ENV>
 ```
+
+| 환경 | 오버레이 경로 |
+|------|--------------|
+| 개발 | `k8s/overlays/dev` |
+| 운영 | `k8s/overlays/prod` |
 
 ### 6. 배포 확인
 
@@ -285,17 +372,22 @@ flowchart TD
 ## 정리 (삭제)
 
 ```bash
-# 애플리케이션 삭제
-kubectl delete -k k8s/overlays/dev  # 또는 prod
+# 1. 애플리케이션 삭제
+kubectl delete -k k8s/overlays/<ENV>
 
-# 서비스 인프라 삭제
+# 2. 인프라 삭제
 cd terraform
-terraform destroy -var-file=dev.tfvars  # 또는 prod.tfvars
+terraform destroy -var-file <ENV>.tfvars
 
-# ECR 삭제 (이미지가 있으면 먼저 삭제 필요)
+# 3. ECR 삭제 (이미지가 있으면 먼저 삭제 필요)
 cd ../ecr
 terraform destroy
 ```
+
+| 환경 | Kustomize 삭제 | Terraform 삭제 |
+|------|----------------|----------------|
+| 개발 | `kubectl delete -k k8s/overlays/dev` | `terraform destroy -var-file dev.tfvars` |
+| 운영 | `kubectl delete -k k8s/overlays/prod` | `terraform destroy -var-file prod.tfvars` |
 
 ## 트러블슈팅
 
